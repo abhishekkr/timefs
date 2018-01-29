@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package timedot;
+
+service TimeFS {
+  rpc CreateTimedot(Record) returns (TimedotSave) {}
+  rpc ReadTimedot(Timedot) returns (stream Record) {}
+  rpc DeleteTimedot(Timedot) returns (TimedotDelete) {}
+}
+
+message Timedot {
+  int32 year = 1;
+  int32 month = 2;
+  int32 date = 3;
+  int32 hour = 4;
+  int32 minute = 5;
+  int32 second = 6;
+  int32 microsecond = 7;
+}
+
+message TimedotSave {
+  bool success = 1;
+}
+
+message TimedotDelete {
+  bool success = 1;
+  uint64 count = 2;
+}
+
+message Record {
+  string topicKey = 1;
+  string topicId = 2;
+  repeated Timedot Time = 3;
+}
