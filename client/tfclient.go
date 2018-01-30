@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/abhishekkr/gol/golenv"
 
-	timefsClient "./logrClient"
+	timefsClient "github.com/abhishekkr/timefs/client/timefsClient"
 )
 
 var (

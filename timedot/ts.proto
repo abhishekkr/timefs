@@ -31,4 +31,5 @@ message Record {
   string topicKey = 1;
   string topicId = 2;
   repeated Timedot Time = 3;
+  string value = 4;
 }

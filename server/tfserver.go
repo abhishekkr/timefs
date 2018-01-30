@@ -9,11 +9,12 @@ import (
 
 	"github.com/abhishekkr/gol/golenv"
 
-	timedot "../timedot"
+	timefs "github.com/abhishekkr/timefs/fs"
+	timedot "github.com/abhishekkr/timefs/timedot"
 )
 
 var (
-	TIMEDOT_PORT = golenv.OverrideIfEnv("TIMEDOT_PORT", ":7999")
+	TIMEFS_PORT = golenv.OverrideIfEnv("TIMEFS_PORT", ":7999")
 )
 
 type Timedots struct {
@@ -21,13 +22,13 @@ type Timedots struct {
 }
 
 func main() {
-	conn, err := net.Listen("tcp", TIMEDOT_PORT)
+	conn, err := net.Listen("tcp", TIMEFS_PORT)
 	if err != nil {
-		log.Fatalln("failed to bind at", TIMEDOT_PORT)
+		log.Fatalln("failed to bind at", TIMEFS_PORT)
 		return
 	}
 
-	log.Println("starting server... @", TIMEDOT_PORT)
+	log.Println("starting server... @", TIMEFS_PORT)
 	svr := grpc.NewServer()
 	timedot.RegisterTimeFSServer(svr, &Timedots{})
 	svr.Serve(conn)
@@ -35,14 +36,13 @@ func main() {
 
 func (tym *Timedots) CreateTimedot(c context.Context, input *timedot.Record) (*timedot.TimedotSave, error) {
 	tym.savedTimedots = append(tym.savedTimedots, input)
-	log.Println("CreateTimedot", tym.savedTimedots)
+	go timefs.CreateRecord(input)
 	return &timedot.TimedotSave{
 		Success: true,
 	}, nil
 }
 
 func (tym *Timedots) ReadTimedot(filtr *timedot.Record, stream timedot.TimeFS_ReadTimedotServer) error {
-	log.Println("GetTimedot")
 	for _, tymdot := range tym.savedTimedots {
 		if !matchtimedot(tymdot, filtr) {
 			continue

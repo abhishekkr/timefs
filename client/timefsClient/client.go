@@ -8,7 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	timedot "../../timedot"
+	timedot "github.com/abhishekkr/timefs/timedot"
 )
 
 func createTimeFS(client timedot.TimeFSClient, l *timedot.Record) {
@@ -42,6 +42,7 @@ func pushSomeDummyTimeFS(client timedot.TimeFSClient) {
 	tymdot := &timedot.Record{
 		TopicKey: "appX",
 		TopicId:  "x.cpu",
+		Value:    "99",
 		Time: []*timedot.Timedot{
 			&timedot.Timedot{
 				Year:        2017,
