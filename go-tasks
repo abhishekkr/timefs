@@ -1,0 +1,589 @@
+#!/bin/bash
+#############################################################################
+#
+# You don't need to keep your project in GOPATH go-get dir.
+# Keep your project in your normal workspace as projects on other stacks.
+# This works like virtualenv, will create a local GOPATH and manage it's own via Linux's symlinks magic.
+#
+# 'source go-tasks'
+# source this file to load all methods
+#   it turns on the go environment for the path it's run from
+#
+# './go-tasks help'
+# it can be used for running regular go-tasks among
+# * cfg - config specifics for go-task to be used in context of a project
+# * deps - to initialize deps if missing, download them
+# * deps-refresh or redep - if a new dep has been added, use this for those to be included or upgraded local
+# * run - this is to run the main
+# * build - this is to build main, plugin if available, migrate main if available
+# * build-plugin - this is to re-build plug-ins only
+# * migrate - this is to run migrate main
+# * quality - thi is to run different quality checks on packages
+# * test - this is to run tests on packages
+#
+#############################################################################
+
+THIS_DIR=$(pwd)
+cd $(dirname $0)
+MY_DIR=$(pwd)
+cd ${THIS_DIR}
+
+[[ -z "${GO_TASK_CONFIG}" ]] && GO_TASK_CONFIG="${THIS_DIR}/.go-tasks.cfg"
+[[ -f "${GO_TASK_CONFIG}" ]] && source "${GO_TASK_CONFIG}"
+
+## can set defaults here, if don't want a cfg file
+[[ -z "${MY_GOPATH}" ]] && export MY_GOPATH=""
+[[ -z "${GO_MAIN_FILE}" ]] && export GO_MAIN_FILE=""
+[[ -z "${DIR_OF_GO_PLUGINS}" ]] && export DIR_OF_GO_PLUGINS=""
+[[ -z "${DB_MIGRATE_MAIN}" ]] && export DB_MIGRATE_MAIN=""
+[[ -z "${GO_GET_PKG_FILE}" ]] && export GO_GET_PKG_FILE="go-tasks.pkg"
+
+# managing go deps
+#############################################################################
+
+#############################################################################
+##### check mandatory variables
+MANDATORY_ENV_VARS=""
+[[ -z "${MY_GOPATH}" ]] && MANDATORY_ENV_VARS="${MANDATORY_ENV_VARS} MY_GOPATH"
+[[ -z "${GO_GET_PKG_FILE}" ]] && MANDATORY_ENV_VARS="${MANDATORY_ENV_VARS} MY_GOPATH"
+
+[[ ! -z "${MANDATORY_ENV_VARS}" && "$1" != "cfg" ]] && \
+  echo "run '$0 cfg', following variable need to be configured: ${MANDATORY_ENV_VARS}" && \
+  exit 123
+
+#############################################################################
+##### from github.com/abhishekkr/dotfiles/shell_profile/a.golang.sh
+
+appendGoImportToListIfMissing(){
+  local _GO_GET_PKG_FILEPATH="$1"
+
+  for gofilepath in $(allPathsWithGoFiles); do
+    for goGetPath in $(go list -f '{{.Deps}}' "$gofilepath" | sed 's/^\[//' | sed 's/\]$//' | grep -v '^[a-zA-Z]*$'); do
+      [[ $(echo "${goGetPath}" | sed 's/\/.*//' | grep -c '\.' ) -ne 0 ]] || continue
+      if [[ $(cat "${_GO_GET_PKG_FILEPATH}" | grep -c "^${goGetPath}$") -eq 0 ]]; then
+        echo "${goGetPath}" | tee -a "${_GO_GET_PKG_FILEPATH}" >/dev/null
+      fi
+    done
+  done
+}
+
+addGoImportsToList(){
+  local GO_GET_PKG_FILEPATH="$1"
+
+  appendGoImportToListIfMissing "${GO_GET_PKG_FILEPATH}"
+
+  local currentDir=$(pwd)
+  cd "${DIR_OF_GO_PLUGINS}"
+  local pluginAbsolutePath=$(pwd)
+  cd "${currentDir}"
+
+  for pluginMain in $(find  "${pluginAbsolutePath}" -name main.go); do
+    [[ -z "${pluginMain}" ]] && continue
+    local pluginDir=$(dirname ${pluginMain})
+    cd "${pluginDir}"
+    appendGoImportToListIfMissing "${GO_GET_PKG_FILEPATH}"
+    cd "${currentDir}"
+  done
+
+  if [[ ! -z "${DB_MIGRATE_MAIN}" ]]; then
+    cd $(dirname "${DB_MIGRATE_MAIN}")
+    appendGoImportToListIfMissing "${GO_GET_PKG_FILEPATH}"
+    cd "${currentDir}"
+  fi
+}
+
+goenvOnAt(){
+  local _GO_ENV_PATH="$1"
+
+  local _GOPATH_VALUE="${PWD}/.goenv"
+  local currentDir=$(pwd)
+
+  if [ ! -z "${_GO_ENV_PATH}" ]; then
+    cd "${_GO_ENV_PATH}"
+    _GOPATH_VALUE="${_GO_ENV_PATH}/.goenv"
+    cd "${currentDir}"
+  fi
+
+  if [ ! -d $_GOPATH_VALUE ]; then
+    mkdir -p "${_GOPATH_VALUE}/site"
+  fi
+
+  export _OLD_GOPATH=$GOPATH
+  export _OLD_PATH=$PATH
+  export GOPATH=$_GOPATH_VALUE/site
+  export PATH=$PATH:$GOPATH/bin
+
+  if [ ! -d "${GOPATH}/src/${MY_GOPATH}" ]; then
+    mkdir -p $(dirname "${GOPATH}/src/${MY_GOPATH}")
+    ln -sf "${THIS_DIR}" "${GOPATH}/src/${MY_GOPATH}"
+  fi
+
+  echo "your new GOPATH is at $GOPATH"
+}
+goenv(){
+  goenvOnAt $(pwd)
+}
+goenvoff(){
+  export GOPATH="$_OLD_GOPATH"
+  export PATH="$_OLD_PATH"
+  unset _OLD_PATH _OLD_GOPATH
+}
+
+goGetPkgHelp(){
+  echo "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+"
+  echo "| go-tasks handles Golang Project dependencies & more |"
+  echo "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+"
+  echo ""
+  echo "* Configure repo specific variables for go-task to use go repos"
+  echo "  $ $0 cfg"
+  echo ""
+  echo "* Create new dependency list or install from existing:"
+  echo "  $ $0 deps"
+  echo ""
+  echo "* Update dependency list for new imports:"
+  echo "  $ $0 redep"
+  echo ""
+  echo "* Update dependency list for new imports and existing ones as well:"
+  echo "  $ $0 redep up"
+  echo ""
+  echo "* to run the ${GO_MAIN_FILE}"
+  echo "  $ $0 run"
+  echo ""
+  echo "* to build ${GO_MAIN_FILE}, plugin in subdirs of ${DIR_OF_GO_PLUGINS} if available, migrate ${DB_MIGRATE_MAIN} if available"
+  echo "  $ $0 build"
+  echo ""
+  echo "* to re-build plug-ins only from ${DIR_OF_GO_PLUGINS}"
+  echo "  $ $0 build-plugin"
+  echo ""
+  echo "* run migrate ${DB_MIGRATE_MAIN}"
+  echo "  $ $0 migrate"
+  echo ""
+  echo "* run different quality checks on packages"
+  echo "  $ $0 quality"
+  echo ""
+  echo "* this is to run tests on packages"
+  echo "  $ $0 test"
+  echo ""
+  echo "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+"
+  echo ""
+  echo "{ specific environment variables impact }"
+  echo ""
+  echo "* Install from existing with updated dependencies"
+  echo "  $ GO_GET_UPDATE=true $0 deps"
+  echo ""
+  echo "* Install from existing with re-prepared binaries (required on new Golang update or local changed dependency code)"
+  echo "  $ GO_GET_RENEW=true $0 deps"
+  echo ""
+  echo "* Install from existing with updated dependencies (re-prepared binaries even if no updates)"
+  echo "  $ GO_GET_RENEW=true GO_GET_UPDATE=true $0 deps"
+  echo ""
+  echo "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+"
+}
+
+goGetPkgListCreate(){
+  if [ ! -f "$1" ]; then
+    PKG_LISTS_DIR=$(dirname $PKG_LISTS)
+    mkdir -p "$PKG_LISTS_DIR" && unset PKG_LISTS_DIR
+
+    touch "${1}"
+    addGoImportsToList "${1}"
+
+    echo "Created GoLang Package empty list ${PKG_LISTS}"
+  fi
+}
+
+gitGetPkgInstall(){
+  local package="$1"
+  local _cloneUrl="$2"
+  local _goGetPath="$3"
+
+  local _goenvBase=$(dirname ${_goGetPath})
+  local goenvSrcPath="${GOPATH}/src/${_goGetPath}"
+
+  local _prevDir=$(pwd)
+  if [[ !  -z $GO_GET_UPDATE && -d "${goenvSrcPath}" ]]; then
+    echo "[+] found existing ${_goGetPath}, running git pull"
+    cd "${goenvSrcPath}"
+    git pull
+  elif [[ ! -d "${goenvSrcPath}" ]]; then
+    echo "[+] not found existing ${_goGetPath}, running git clone"
+    mkdir -p $(dirname "${goenvSrcPath}")
+    cd $(dirname "${goenvSrcPath}")
+    git clone ${_cloneUrl}
+  fi
+  cd "${_prevDir}"
+
+  go get ${_goGetPath}
+}
+
+httpsGetPkgInstall(){
+  local package="$1"
+  echo "[+] setup explicitly over https:// - $package"
+
+  local _cloneUrl=$(echo "${pkg_import_path}" | sed -E 's/(https:\/\/[^\/]*\/[^\/]*\/[^\/]*).*/\1/' | sed 's/.git$//')".git"
+  local _goGetPath=$(echo "${_cloneUrl}"|  sed 's/https:\/\///' | sed 's/.git$//')
+  gitGetPkgInstall "${package}" "${_cloneUrl}" "${_goGetPath}"
+}
+
+gitAtGetPkgInstall(){
+  local package="$1"
+  local pkg_import_path=$(echo $pkg_path | awk '{print $NF}')
+  echo "[+] go get explicitly over git@ - $package"
+
+  local _cloneUrl=$(echo "${pkg_import_path}" | sed -E 's/([^\/]*\/[^\/]*).*/\1/' | sed 's/.git$//')",git"
+  local _goGetPath=$(echo "${_cloneUrl}"|  sed 's/git@//' | sed 's/:/\//' | sed 's/.git$//')
+  gitGetPkgInstall "${package}" "${_cloneUrl}" "${_goGetPath}"
+}
+
+goGetPkgInstall(){
+  for pkg_list in $PKG_LISTS; do
+    cat $pkg_list | while read pkg_path; do
+      pkg_import_path=$(echo $pkg_path | awk '{print $NF}')
+      if [[ ! -z $GO_GET_RENEW ]]; then
+        rm -rf "${GOPATH}/pkg/${GOOS}_${GOARCH}/${pkg_import_path}"
+        echo "cleaning old pkg for ${pkg_import_path}"
+      fi
+
+      local go_get="go get"
+      if [[ ! -z $GO_GET_UPDATE ]]; then
+        go_get="${go_get} -u"
+      fi
+
+      if [[ $(echo ${pkg_import_path} | grep -c '^https:\/\/') -ne 0  ]]; then
+        httpsGetPkgInstall "${pkg_path}"
+      elif [[ $(echo ${pkg_import_path} | grep -c '^git@') -ne 0  ]]; then
+        gitAtGetPkgInstall "${pkg_path}"
+      else
+        echo "fetching go package: ${go_get} ${pkg_path}";
+        ${go_get} ${pkg_path}
+      fi
+    done
+  done
+
+  unset GO_GET_UPDATE GO_GET_RENEW
+}
+
+goGetPkgFile(){
+  if [[ $# -eq 0 ]]; then
+    PKG_LISTS="$PWD/${GO_GET_PKG_FILE}"
+  else
+    PKG_LISTS=($@)
+    if [[ -d "$PKG_LISTS" ]]; then
+      PKG_LISTS="${PKG_LISTS}/${GO_GET_PKG_FILE}"
+    fi
+  fi
+  echo "${PKG_LISTS}"
+}
+
+goGetPkg(){
+  if [[ "$1" == "help" ]]; then
+    goGetPkgHelp
+    return 0
+  fi
+
+  PKG_LISTS=$(goGetPkgFile $@)
+
+  goGetPkgListCreate $PKG_LISTS
+
+  if [[ -z $GO_GET_ENV ]]; then
+    local _GO_GET_ENV=$(dirname $PKG_LISTS)
+    local currentDir=$(pwd)
+    cd $_GO_GET_ENV
+    GO_GET_ENV=$(pwd)
+    cd ${currentDir}
+  fi
+  goenvOnAt $GO_GET_ENV
+
+  goGetPkgInstall "$PKG_LISTS"
+
+  unset _GO_GET_ENV GO_GET_ENV PKG_LISTS
+}
+
+goGetPkgRefresh(){
+  local _GO_GET_UPDATE="${GO_GET_UPDATE}"
+  if [[ "$1" == "help" ]]; then
+    goGetPkgHelp
+    return 0
+  elif [[ "$1" == "up" ]]; then
+    export GO_GET_UPDATE="true"
+  fi
+
+  PKG_LISTS=$(goGetPkgFile $@)
+  rm -f "${PKG_LISTS}"
+
+  goGetPkg $@
+  export GO_GET_UPDATE="${_GO_GET_UPDATE}"
+}
+
+buildMigrate(){
+  [[ -z "${DB_MIGRATE_MAIN}" ]] && echo "no db migrate main provided" && return
+
+  go build -o ./bin/migrate "${DB_MIGRATE_MAIN}"
+  [[ $? -ne 0 ]] && echo "go build for migrate failed" && exit 123
+}
+
+buildPlugins(){
+  [[ -z "${DIR_OF_GO_PLUGINS}" ]] && echo "no plugins mentioned to build" && return
+
+  local currentDir=$(pwd)
+  cd "${DIR_OF_GO_PLUGINS}"
+  local pluginAbsolutePath=$(pwd)
+  cd "${currentDir}"
+
+  for pluginMain in $(find  "${pluginAbsolutePath}" -name main.go); do
+    [[ -z "${pluginMain}" ]] && continue
+    local pluginDir=$(dirname ${pluginMain})
+    local pluginName=$(basename ${pluginDir})
+    echo "[+] building plug-in at ${pluginDir}"
+    cd "${pluginDir}"
+    go build -o "${pluginAbsolutePath}/${pluginName}.so" -buildmode=plugin .
+    [[ $? -ne 0 ]] && echo "go build for plugin ${pluginName} failed" && exit 123
+    cd "${currentDir}"
+  done
+}
+
+buildForAll(){
+  local FOR_OS_ARCH="$1"
+  local GO_MAIN_BIN=$(echo "${GO_MAIN_FILE}" | sed 's/.go$//')
+
+  [[ ! -f "${GO_MAIN_FILE}" ]] && \
+    echo "[error] missing main file ${GO_MAIN_FILE}, set correct env for GO_MAIN_FILE" && \
+    exit 123
+
+  buildMigrate
+  buildPlugins
+
+  mkdir -p ./bin
+  for GOOS in darwin linux windows; do
+    for GOARCH in 386 amd64; do
+      [[ ! -z "${FOR_OS_ARCH}" && "${GOOS}-${GOARCH}" != "${FOR_OS_ARCH}" ]] && continue
+      echo "[+] building ${GO_MAIN_FILE} for $GOOS - $GOARCH"
+      go build -o ./bin/${GO_MAIN_BIN}-$GOOS-$GOARCH "${GO_MAIN_FILE}"
+      [[ $? -ne 0 ]] && echo "go build for ${GO_MAIN_FILE}-${GOOS}-${GOARCH} failed" && exit 123
+    done
+  done
+}
+
+allPathsWithGoFiles(){
+  find . -maxdepth 1 -type d | grep -v -E '^\.$|^./\.git$|^./\.goenv$|^./temp$|^./vendor$'
+}
+
+goVetAll(){
+  go tool vet -all *.go
+  for loc in $(allPathsWithGoFiles); do
+    go tool vet -all ${loc}
+  done
+}
+
+goErrcheck(){
+  go get github.com/kisielk/errcheck
+
+  for loc in $(allPathsWithGoFiles); do
+    find ${loc} -type f -name *.go | xargs -I {} errcheck -abspath -asserts -blank -verbose {}
+  done
+}
+
+goSafesql(){
+  go get github.com/stripe/safesql
+
+  for loc in $(allPathsWithGoFiles); do
+    safesql -q=false ${loc}
+  done
+}
+
+goReporter(){
+  go get github.com/360EntSecGroup-Skylar/goreporter
+
+  for loc in $(allPathsWithGoFiles); do
+    goreporter -p ${loc} -f html
+  done
+
+  mkdir -p spec-reports/goreporter
+  mv ./*.html ./spec-reports/goreporter
+}
+
+goTest(){
+  local _GO_TEST_PATHS=""
+  echo ""
+  echo "### running ~ *goTest*"
+  echo ""
+
+  for loc in $(allPathsWithGoFiles); do
+    [[ $(ls -1 ./$loc/*.go 2>/dev/null | wc -l) -gt 0 ]] && \
+      _GO_TEST_PATHS="${_GO_TEST_PATHS} ${loc}/..."
+  done
+
+  go test -cover ${_GO_TEST_PATHS}
+  local _LAST_EXITCODE=$?
+  [[ ${_LAST_EXITCODE} -ne 0 ]] && exit ${_LAST_EXITCODE}
+}
+
+goQualityCheck(){
+  echo ""
+  echo "### running ~ *go vet*"
+  echo ""
+  goVetAll
+  echo ""
+  echo "----------------------------------------------------------------------"
+  echo ""
+
+  echo ""
+  echo "### running ~ *errorcheck*"
+  echo ""
+  goErrcheck
+  echo ""
+  echo "----------------------------------------------------------------------"
+  echo ""
+
+  echo ""
+  echo "### running ~ *safesql*"
+  echo ""
+  goSafesql
+  echo ""
+  echo "----------------------------------------------------------------------"
+  echo ""
+
+  echo ""
+  echo "### running ~ *goreporter*"
+  echo ""
+  goReporter
+  echo ""
+  echo "----------------------------------------------------------------------"
+  echo ""
+}
+
+migrateDB(){
+  echo $@
+  local DB_CONNSTR="$1"
+  local MIGRATION_TYPE="$2"
+
+  [[ -z "${DB_CONNSTR}" ]] && export DB_CONNSTR="${DB_CONNECTION_STRING}"
+  [[ -z "${MIGRATION_TYPE}" ]] && export MIGRATION_TYPE="up"
+
+  [[ -z "${DB_CONNSTR}" ]] && echo "env DB_IP is empty, see usage" && exit 123
+
+  go run db/schema.go -type ${MIGRATION_TYPE} -dir db/migrations -db "${DB_CONNSTR}"
+}
+
+goTasksHelp(){
+  echo "Use it wisely..."
+  echo ""
+  echo "Build usable binaries: '$0 build'"
+  echo ""
+  echo "Build plugins for mains in sudirs in specified plugin-directory: '$0 build-plugin'"
+  echo ""
+  echo "Run in local go env: '$0 run'"
+  echo ""
+  echo "Run db-migrations in local go env: '$0 migrate <db-connection-string> <up|down>]' | tries infer env DB_CONNECTION_STRING if no param, default 'up'"
+  echo ""
+  echo "Install tall Go lib dependencies: '$0 deps'"
+  goGetPkgHelp
+  echo ""
+  echo "Install tall Go lib dependencies: '$0 deps-refresh'"
+}
+
+configGoTasks(){
+  [[ -z "${GO_TASK_CONFIG}" ]] && GO_TASK_CONFIG="${THIS_DIR}/.go-tasks.cfg"
+
+  echo -n "[+] enter 'go get'-able path for this project (default: '${MY_GOPATH}'): "
+  read _MY_GOPATH
+  [[ -z "${_MY_GOPATH}" ]] && _MY_GOPATH="${MY_GOPATH}"
+
+  echo -n "[+] relative filepath with package main (default: '${GO_MAIN_FILE}'): "
+  read _GO_MAIN_FILE
+  [[ -z "${_GO_MAIN_FILE}" ]] && _GO_MAIN_FILE="${GO_MAIN_FILE}"
+
+  echo -n "[+] if there are plug-ins provide their parent-dir path, else just press enter (default: '${DIR_OF_GO_PLUGINS}'): "
+  read _DIR_OF_GO_PLUGINS
+  [[ -z "${_DIR_OF_GO_PLUGINS}" ]] && _DIR_OF_GO_PLUGINS="${DIR_OF_GO_PLUGINS}"
+
+  echo -n "[+] if there is a separate main file handling db migration, it's path else just press enter (default: '${DB_MIGRATE_MAIN}'): "
+  read _DB_MIGRATE_MAIN
+  [[ -z "${_DB_MIGRATE_MAIN}" ]] && _DB_MIGRATE_MAIN="${DB_MIGRATE_MAIN}"
+
+  echo -n "[+] if there is a separate main file handling db migration, it's path else just press enter (default: '${GO_GET_PKG_FILE}'): "
+  read _GO_GET_PKG_FILE
+  [[ -z "${_GO_GET_PKG_FILE}" ]] && _GO_GET_PKG_FILE="${GO_GET_PKG_FILE}"
+
+
+  if [[ ! -z "${_MY_GOPATH}" ]]; then
+    echo "export MY_GOPATH='${_MY_GOPATH}'" > "${GO_TASK_CONFIG}"
+  fi
+  if [[ ! -z "${_GO_MAIN_FILE}" ]]; then
+    echo "export GO_MAIN_FILE='${_GO_MAIN_FILE}'" >> "${GO_TASK_CONFIG}"
+  fi
+  if [[ ! -z "${_DIR_OF_GO_PLUGINS}" ]]; then
+    echo "export DIR_OF_GO_PLUGINS='${_DIR_OF_GO_PLUGINS}'" >> "${GO_TASK_CONFIG}"
+  fi
+  if [[ ! -z "${_DB_MIGRATE_MAIN}" ]]; then
+    echo "export DB_MIGRATE_MAIN='${_DB_MIGRATE_MAIN}'" >> "${GO_TASK_CONFIG}"
+  fi
+  if [[ ! -z "${_GO_GET_PKG_FILE}" ]]; then
+    echo "export GO_GET_PKG_FILE='${_GO_GET_PKG_FILE}'" >> "${GO_TASK_CONFIG}"
+  fi
+}
+
+goTasks(){
+  local axn="$1"
+
+  goenvOnAt $PWD
+
+  case $axn in
+    cfg)
+      configGoTasks
+      ;;
+    deps)
+      goGetPkg
+      ;;
+    deps-refresh|redep)
+      goGetPkgRefresh ${@:2}
+      ;;
+    run)
+      go run $(dirname $0)/${GO_MAIN_FILE} ${@:2}
+      ;;
+    build)
+      bash $0 deps
+      buildForAll "$2"
+      ;;
+    build-plugin)
+      bash $0 deps
+      buildPlugins
+      ;;
+    migrate)
+      bash $0 deps
+      migrateDB ${@:2}
+      ;;
+    quality)
+      bash $0 deps
+      goQualityCheck
+      ;;
+    test)
+      bash $0 deps
+      goTest
+      ;;
+    *)
+      goTasksHelp
+      ;;
+  esac
+}
+
+##############################################################################
+
+SCRIPT_NAME=$( basename ${0#-} ) #- needed if sourced no path
+
+[[ ! -z "${BASH_SOURCE}" ]] && THIS_SCRIPT=$( basename ${BASH_SOURCE} )
+
+if [[ ${SCRIPT_NAME} = ${THIS_SCRIPT} ]] ; then
+    goTasks $@
+else
+    goenv
+    echo "reset to regular go configs with cmd 'goenoff', to get this local env run 'goenv'."
+fi
+
+_OLD_PWD=$PWD
+cd $(dirname $0)
+
+
+cd $_OLD_PWD
+
+##############################################################################

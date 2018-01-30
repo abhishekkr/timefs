@@ -4,8 +4,8 @@ package timedot;
 
 service TimeFS {
   rpc CreateTimedot(Record) returns (TimedotSave) {}
-  rpc ReadTimedot(Timedot) returns (stream Record) {}
-  rpc DeleteTimedot(Timedot) returns (TimedotDelete) {}
+  rpc ReadTimedot(Record) returns (stream Record) {}
+  rpc DeleteTimedot(Record) returns (TimedotDelete) {}
 }
 
 message Timedot {
