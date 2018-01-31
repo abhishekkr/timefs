@@ -11,30 +11,21 @@ import (
 	timedot "github.com/abhishekkr/timefs/timedot"
 )
 
-/*
-	tymdot := &timedot.Record{
-		TopicKey: "appX",
-		TopicId:  "x.cpu",
-		Time: []*timedot.Timedot{
-			&timedot.Timedot{
-				Year:        2017,
-				Month:       3,
-				Date:        17,
-				Hour:        1,
-				Minute:      20,
-				Second:      30,
-				Microsecond: 7,
-			},
-		},
-	}
-*/
-
 var (
 	TIMEFS_DIR_ROOT = golenv.OverrideIfEnv("TIMEFS_DIR_ROOT", "/tmp/timefs")
+	ValueFile       = "value"
 )
 
 func int32ToStr(n int32) string {
 	return strconv.Itoa(int(n))
+}
+
+func strToInt32(s string) int32 {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		log.Println("[fs.strToInt32] failure to convert", s)
+	}
+	return int32(n)
 }
 
 func timedotPath(record *timedot.Record) string {
@@ -52,7 +43,7 @@ func timedotPath(record *timedot.Record) string {
 }
 
 func timedotFile(dirname string) string {
-	return path.Join(dirname, "value")
+	return path.Join(dirname, ValueFile)
 }
 
 func CreateRecord(record *timedot.Record) {
@@ -75,5 +66,34 @@ func CreateRecord(record *timedot.Record) {
 	if err := ioutil.WriteFile(filepath, []byte(record.Value), 0644); err != nil {
 		log.Println("[fs.CreateRecord] failed creating value file ", filepath)
 	}
+	return
+}
+
+func ReadRecords(record *timedot.Record) (records []*timedot.Record, err error) {
+	if err = globRecordTopicKey(record); err != nil {
+		return
+	}
+	if err = globRecordTopicId(record); err != nil {
+		return
+	}
+	if err = globRecordTime(record); err != nil {
+		return
+	}
+	return
+}
+
+func ReadRecord(record *timedot.Record) (value string) {
+	dirname := timedotPath(record)
+	filepath := timedotFile(dirname)
+	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+		log.Println("[fs.ReadRecord] missing", filepath)
+		return
+	}
+
+	if valueByte, err := ioutil.ReadFile(filepath); err == nil {
+		value = string(valueByte)
+		return
+	}
+	log.Println("[fs.ReadRecord] failed reading value file ", filepath)
 	return
 }

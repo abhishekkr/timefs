@@ -35,7 +35,6 @@ func main() {
 }
 
 func (tym *Timedots) CreateTimedot(c context.Context, input *timedot.Record) (*timedot.TimedotSave, error) {
-	tym.savedTimedots = append(tym.savedTimedots, input)
 	go timefs.CreateRecord(input)
 	return &timedot.TimedotSave{
 		Success: true,
@@ -43,7 +42,11 @@ func (tym *Timedots) CreateTimedot(c context.Context, input *timedot.Record) (*t
 }
 
 func (tym *Timedots) ReadTimedot(filtr *timedot.Record, stream timedot.TimeFS_ReadTimedotServer) error {
-	for _, tymdot := range tym.savedTimedots {
+	records, err := timefs.ReadRecords(filtr)
+	if err != nil {
+		return err
+	}
+	for _, tymdot := range records {
 		if !matchtimedot(tymdot, filtr) {
 			continue
 		}

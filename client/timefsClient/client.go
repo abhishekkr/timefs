@@ -32,7 +32,7 @@ func getTimeFS(client timedot.TimeFSClient, filtr *timedot.Record) {
 			break
 		}
 		if err != nil {
-			log.Printf("%v.GetLogs(_) = _, %v", client, err)
+			log.Printf("%v.ReadRecord(_) = _, %v", client, err)
 		}
 		fmt.Println("timedot: ", l)
 	}
