@@ -42,16 +42,11 @@ func (tym *Timedots) CreateTimedot(c context.Context, input *timedot.Record) (*t
 }
 
 func (tym *Timedots) ReadTimedot(filtr *timedot.Record, stream timedot.TimeFS_ReadTimedotServer) error {
-	records, err := timefs.ReadRecords(filtr)
-	if err != nil {
-		return err
-	}
-	for _, tymdot := range records {
-		if !matchtimedot(tymdot, filtr) {
-			continue
-		}
+	recordChan := make(chan timedot.Record)
 
-		err := stream.Send(tymdot)
+	go timefs.ReadRecords(recordChan, filtr)
+	for record := range recordChan {
+		err := stream.Send(&record)
 		if err != nil {
 			return err
 		}
@@ -65,8 +60,4 @@ func (tym *Timedots) DeleteTimedot(c context.Context, input *timedot.Record) (*t
 		Success: true,
 		Count:   0,
 	}, nil
-}
-
-func matchtimedot(tymdot *timedot.Record, filtr *timedot.Record) bool {
-	return true
 }

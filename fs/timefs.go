@@ -69,31 +69,20 @@ func CreateRecord(record *timedot.Record) {
 	return
 }
 
-func ReadRecords(record *timedot.Record) (records []*timedot.Record, err error) {
-	if err = globRecordTopicKey(record); err != nil {
-		return
-	}
-	if err = globRecordTopicId(record); err != nil {
-		return
-	}
-	if err = globRecordTime(record); err != nil {
-		return
-	}
-	return
-}
-
-func ReadRecord(record *timedot.Record) (value string) {
-	dirname := timedotPath(record)
-	filepath := timedotFile(dirname)
-	if _, err := os.Stat(filepath); os.IsNotExist(err) {
-		log.Println("[fs.ReadRecord] missing", filepath)
+func ReadRecords(recordChan chan timedot.Record, record *timedot.Record) {
+	var err error
+	if len(record.Time) > 0 {
 		return
 	}
 
-	if valueByte, err := ioutil.ReadFile(filepath); err == nil {
-		value = string(valueByte)
+	record.Time = append(record.Time, &timedot.Timedot{})
+	if len(record.Time) == 0 {
 		return
 	}
-	log.Println("[fs.ReadRecord] failed reading value file ", filepath)
+
+	err = globTimedots(recordChan, record)
+	if err != nil {
+		log.Println(err)
+	}
 	return
 }
