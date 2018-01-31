@@ -38,26 +38,6 @@ func getTimeFS(client timedot.TimeFSClient, filtr *timedot.Record) {
 	}
 }
 
-func pushSomeDummyTimeFS(client timedot.TimeFSClient) {
-	tymdot := &timedot.Record{
-		TopicKey: "appX",
-		TopicId:  "x.cpu",
-		Value:    "99",
-		Time: []*timedot.Timedot{
-			&timedot.Timedot{
-				Year:        2017,
-				Month:       3,
-				Date:        17,
-				Hour:        1,
-				Minute:      20,
-				Second:      30,
-				Microsecond: 7,
-			},
-		},
-	}
-	createTimeFS(client, tymdot)
-}
-
 func GrpcClient(port string) {
 	conn, err := grpc.Dial(port, grpc.WithInsecure())
 	if err != nil {
