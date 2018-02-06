@@ -1,42 +1,83 @@
 package timefsClient
 
-import timedot "github.com/abhishekkr/timefs/timedot"
+import (
+	golenv "github.com/abhishekkr/gol/golenv"
+	fs "github.com/abhishekkr/timefs/fs"
+	timedot "github.com/abhishekkr/timefs/timedot"
+)
 
-func dummyRecord(yy, mm, dd, hr, min, sec, ms int32) *timedot.Timedot {
-	return &timedot.Timedot{
-		Year:        yy,
-		Month:       mm,
-		Date:        dd,
-		Hour:        hr,
-		Minute:      min,
-		Second:      sec,
-		Microsecond: ms,
-	}
+type dummy struct {
+	dot    timedot.Timedot
+	client *timedot.TimeFSClient
 }
 
-func pushDummyRecord(client timedot.TimeFSClient, yy, mm, dd, hr, min, sec, ms int32) {
+var (
+	DUMMY_TOPICKEY = golenv.OverrideIfEnv("DUMMY_TOPICKEY", "appX")
+	DUMMY_TOPICID  = golenv.OverrideIfEnv("DUMMY_TOPICID", "x.cpu")
+	DUMMY_VALUE    = golenv.OverrideIfEnv("DUMMY_VALUE", "99")
+)
+
+func (d *dummy) dummyRecord() *timedot.Timedot {
+	return &(d.dot)
+}
+
+func (d *dummy) pushDummyRecord() {
 	tymdot := &timedot.Record{
-		TopicKey: "appX",
-		TopicId:  "x.cpu",
-		Value:    "99",
+		TopicKey: DUMMY_TOPICKEY,
+		TopicId:  DUMMY_TOPICID,
+		Value:    DUMMY_VALUE,
 		Time: []*timedot.Timedot{
-			dummyRecord(yy, mm, dd, hr, min, sec, ms),
+			d.dummyRecord(),
 		},
 	}
-	createTimeFS(client, tymdot)
+
+	createTimeFS((*d).client, tymdot)
 }
 
-func pushSomeDummyTimeFS(client timedot.TimeFSClient) {
-	yy := int32(2017)
-	mm := int32(3)
-	dd := int32(17)
-	for hr := int32(1); hr <= 6; hr++ {
-		for min := int32(1); min <= 6; min++ {
-			for sec := int32(1); sec <= 6; sec++ {
-				for ms := int32(1); ms <= 6; ms++ {
-					pushDummyRecord(client, yy, mm, dd, hr, min, sec, ms)
-				}
-			}
-		}
+func (d *dummy) pushSomeDummyMicros() {
+	ms := fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_MS", "10"))
+	for d.dot.Microsecond = int32(1); d.dot.Microsecond <= ms; d.dot.Microsecond++ {
+		d.pushDummyRecord()
 	}
+}
+
+func (d *dummy) pushSomeDummySec() {
+	s := fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_SEC", "10"))
+	for d.dot.Second = int32(1); d.dot.Second <= s; d.dot.Second++ {
+		d.pushSomeDummyMicros()
+	}
+}
+
+func (d *dummy) pushSomeDummyMin() {
+	m := fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_MIN", "10"))
+	for d.dot.Minute = int32(1); d.dot.Minute <= m; d.dot.Minute++ {
+		d.pushSomeDummySec()
+	}
+}
+
+func (d *dummy) pushSomeDummyHr() {
+	h := fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_HOUR", "10"))
+	for d.dot.Minute = int32(1); d.dot.Minute <= h; d.dot.Minute++ {
+		d.pushSomeDummyMin()
+	}
+}
+
+func (d *dummy) pushSomeDummyTimeFS() {
+	d.dot.Year = fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_YEAR", "2018"))
+	d.dot.Month = fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_YEAR", "1"))
+	d.dot.Date = fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_YEAR", "30"))
+	d.pushSomeDummyHr()
+}
+
+func DummyCreate(client *timedot.TimeFSClient) {
+	d := dummy{client: client}
+	d.pushSomeDummyTimeFS()
+}
+
+func DummyRead(client *timedot.TimeFSClient) {
+	filterx := &timedot.Record{
+		TopicKey: DUMMY_TOPICKEY,
+		TopicId:  DUMMY_TOPICID,
+	}
+	getTimeFS(client, filterx)
 }

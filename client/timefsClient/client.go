@@ -11,16 +11,19 @@ import (
 	timedot "github.com/abhishekkr/timefs/timedot"
 )
 
-func createTimeFS(client timedot.TimeFSClient, l *timedot.Record) {
-	resp, err := client.CreateTimedot(context.Background(), l)
+func createTimeFS(client *timedot.TimeFSClient, l *timedot.Record) {
+	resp, err := (*client).CreateTimedot(context.Background(), l)
 
-	if err != nil || !resp.Success {
-		log.Printf("create timedot failed\nerr: %q\nresponse: %q", err.Error(), resp.Success)
+	if err != nil {
+		log.Printf("create timedot failed\nerr: %q\n",
+			err.Error())
+	} else if !resp.Success {
+		log.Printf("create timedot failed\nresponse: %q", resp)
 	}
 }
 
-func getTimeFS(client timedot.TimeFSClient, filtr *timedot.Record) {
-	stream, err := client.ReadTimedot(context.Background(), filtr)
+func getTimeFS(client *timedot.TimeFSClient, filtr *timedot.Record) {
+	stream, err := (*client).ReadTimedot(context.Background(), filtr)
 	if err != nil {
 		log.Println("error on get timedot: ", err.Error())
 		return
@@ -38,22 +41,14 @@ func getTimeFS(client timedot.TimeFSClient, filtr *timedot.Record) {
 	}
 }
 
-func GrpcClient(port string) {
+func LinkOpen(port string) *grpc.ClientConn {
 	conn, err := grpc.Dial(port, grpc.WithInsecure())
 	if err != nil {
-		log.Fatalln("did not connect: ", err.Error())
-		return
+		log.Fatalln("did not connect:", err.Error())
 	}
-	defer conn.Close()
-	log.Println("starting client...")
+	return conn
+}
 
-	client := timedot.NewTimeFSClient(conn)
-	pushSomeDummyTimeFS(client)
-
-	log.Println("--- all")
-	filterx := &timedot.Record{
-		TopicKey: "appX",
-		TopicId:  "x.cpu",
-	}
-	getTimeFS(client, filterx)
+func LinkClose(conn *grpc.ClientConn) {
+	conn.Close()
 }

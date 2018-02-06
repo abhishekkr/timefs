@@ -11,3 +11,4 @@ temp/*
 *.cfg
 *.lock
 *.sock
+tags

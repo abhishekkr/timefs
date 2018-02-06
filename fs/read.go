@@ -20,13 +20,13 @@ func globTimedots(recordChan chan timedot.Record, record *timedot.Record) (err e
 
 	updatePathForTimedot(&dirname, record.TopicKey)
 	updatePathForTimedot(&dirname, record.TopicId)
-	updatePathForTimedot(&dirname, int32ToStr(record.Time[0].Year))
-	updatePathForTimedot(&dirname, int32ToStr(record.Time[0].Month))
-	updatePathForTimedot(&dirname, int32ToStr(record.Time[0].Date))
-	updatePathForTimedot(&dirname, int32ToStr(record.Time[0].Hour))
-	updatePathForTimedot(&dirname, int32ToStr(record.Time[0].Minute))
-	updatePathForTimedot(&dirname, int32ToStr(record.Time[0].Second))
-	updatePathForTimedot(&dirname, int32ToStr(record.Time[0].Microsecond))
+	updatePathForTimedot(&dirname, Int32ToStr(record.Time[0].Year))
+	updatePathForTimedot(&dirname, Int32ToStr(record.Time[0].Month))
+	updatePathForTimedot(&dirname, Int32ToStr(record.Time[0].Date))
+	updatePathForTimedot(&dirname, Int32ToStr(record.Time[0].Hour))
+	updatePathForTimedot(&dirname, Int32ToStr(record.Time[0].Minute))
+	updatePathForTimedot(&dirname, Int32ToStr(record.Time[0].Second))
+	updatePathForTimedot(&dirname, Int32ToStr(record.Time[0].Microsecond))
 
 	err = filepath.Walk(dirname, func(_path string, f os.FileInfo, err error) error {
 		if filepath.Base(_path) != ValueFile {
@@ -72,13 +72,13 @@ func pathToTimedot(dotpath string) (record timedot.Record) {
 		Value:    string(dotvalue),
 		Time: []*timedot.Timedot{
 			&timedot.Timedot{
-				Year:        strToInt32(dotpathSplit[3]),
-				Month:       strToInt32(dotpathSplit[4]),
-				Date:        strToInt32(dotpathSplit[5]),
-				Hour:        strToInt32(dotpathSplit[6]),
-				Minute:      strToInt32(dotpathSplit[7]),
-				Second:      strToInt32(dotpathSplit[8]),
-				Microsecond: strToInt32(dotpathSplit[9]),
+				Year:        StrToInt32(dotpathSplit[3]),
+				Month:       StrToInt32(dotpathSplit[4]),
+				Date:        StrToInt32(dotpathSplit[5]),
+				Hour:        StrToInt32(dotpathSplit[6]),
+				Minute:      StrToInt32(dotpathSplit[7]),
+				Second:      StrToInt32(dotpathSplit[8]),
+				Microsecond: StrToInt32(dotpathSplit[9]),
 			},
 		},
 	}

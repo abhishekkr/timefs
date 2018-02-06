@@ -16,14 +16,14 @@ var (
 	ValueFile       = "value"
 )
 
-func int32ToStr(n int32) string {
+func Int32ToStr(n int32) string {
 	return strconv.Itoa(int(n))
 }
 
-func strToInt32(s string) int32 {
+func StrToInt32(s string) int32 {
 	n, err := strconv.Atoi(s)
 	if err != nil {
-		log.Println("[fs.strToInt32] failure to convert", s)
+		log.Println("[fs.StrToInt32] failure to convert", s)
 	}
 	return int32(n)
 }
@@ -32,13 +32,13 @@ func timedotPath(record *timedot.Record) string {
 	return path.Join(TIMEFS_DIR_ROOT,
 		record.TopicKey,
 		record.TopicId,
-		int32ToStr(record.Time[0].Year),
-		int32ToStr(record.Time[0].Month),
-		int32ToStr(record.Time[0].Date),
-		int32ToStr(record.Time[0].Hour),
-		int32ToStr(record.Time[0].Minute),
-		int32ToStr(record.Time[0].Second),
-		int32ToStr(record.Time[0].Microsecond),
+		Int32ToStr(record.Time[0].Year),
+		Int32ToStr(record.Time[0].Month),
+		Int32ToStr(record.Time[0].Date),
+		Int32ToStr(record.Time[0].Hour),
+		Int32ToStr(record.Time[0].Minute),
+		Int32ToStr(record.Time[0].Second),
+		Int32ToStr(record.Time[0].Microsecond),
 	)
 }
 
