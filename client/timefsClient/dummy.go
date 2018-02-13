@@ -35,28 +35,28 @@ func (d *dummy) pushDummyRecord() {
 }
 
 func (d *dummy) pushSomeDummyMicros() {
-	ms := fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_MS", "10"))
+	ms := fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_MS", "20"))
 	for d.dot.Microsecond = int32(1); d.dot.Microsecond <= ms; d.dot.Microsecond++ {
 		d.pushDummyRecord()
 	}
 }
 
 func (d *dummy) pushSomeDummySec() {
-	s := fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_SEC", "10"))
+	s := fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_SEC", "40"))
 	for d.dot.Second = int32(1); d.dot.Second <= s; d.dot.Second++ {
 		d.pushSomeDummyMicros()
 	}
 }
 
 func (d *dummy) pushSomeDummyMin() {
-	m := fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_MIN", "10"))
+	m := fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_MIN", "60"))
 	for d.dot.Minute = int32(1); d.dot.Minute <= m; d.dot.Minute++ {
 		d.pushSomeDummySec()
 	}
 }
 
 func (d *dummy) pushSomeDummyHr() {
-	h := fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_HOUR", "10"))
+	h := fs.StrToInt32(golenv.OverrideIfEnv("DUMMY_HOUR", "12"))
 	for d.dot.Minute = int32(1); d.dot.Minute <= h; d.dot.Minute++ {
 		d.pushSomeDummyMin()
 	}
