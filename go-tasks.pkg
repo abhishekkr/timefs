@@ -39,6 +39,10 @@ google.golang.org/grpc/status
 google.golang.org/grpc/tap
 google.golang.org/grpc/transport
 github.com/abhishekkr/gol/golenv
+github.com/abhishekkr/timefs/fs
+github.com/abhishekkr/timefs/timedot
+github.com/abhishekkr/timefs/client/timefsClient
+gopkg.in/alecthomas/kingpin.v2
 github.com/golang/protobuf/protoc-gen-go/descriptor
 github.com/golang/protobuf/protoc-gen-go/plugin
 github.com/golang/protobuf/protoc-gen-go/generator
