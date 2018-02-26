@@ -2,7 +2,6 @@ package timefsClient
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 
@@ -22,7 +21,7 @@ func CreateTimeFS(client *timedot.TimeFSClient, l *timedot.Record) {
 	}
 }
 
-func GetTimeFS(client *timedot.TimeFSClient, filtr *timedot.Record) {
+func GetTimeFS(client *timedot.TimeFSClient, filtr *timedot.Record, recordChan chan timedot.Record) {
 	stream, err := (*client).ReadTimedot(context.Background(), filtr)
 	if err != nil {
 		log.Println("error on get timedot: ", err.Error())
@@ -32,12 +31,15 @@ func GetTimeFS(client *timedot.TimeFSClient, filtr *timedot.Record) {
 	for {
 		l, err := stream.Recv()
 		if err == io.EOF {
+			close(recordChan)
 			break
 		}
+		recordChan <- *l
+
 		if err != nil {
+			close(recordChan)
 			log.Printf("%v.ReadRecord(_) = _, %v", client, err)
 		}
-		fmt.Println("timedot: ", l)
 	}
 }
 

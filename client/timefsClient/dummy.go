@@ -1,6 +1,8 @@
 package timefsClient
 
 import (
+	"fmt"
+
 	golenv "github.com/abhishekkr/gol/golenv"
 	fs "github.com/abhishekkr/timefs/fs"
 	timedot "github.com/abhishekkr/timefs/timedot"
@@ -75,9 +77,16 @@ func DummyCreate(client *timedot.TimeFSClient) {
 }
 
 func DummyRead(client *timedot.TimeFSClient) {
+	recordChan := make(chan timedot.Record)
+
 	filterx := &timedot.Record{
 		TopicKey: DUMMY_TOPICKEY,
 		TopicId:  DUMMY_TOPICID,
 	}
-	GetTimeFS(client, filterx)
+
+	go GetTimeFS(client, filterx, recordChan)
+
+	for _record := range recordChan {
+		fmt.Println("timedot: ", &_record)
+	}
 }
