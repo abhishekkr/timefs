@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/abhishekkr/gol/golenv"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -13,37 +12,39 @@ import (
 )
 
 var (
-	TIMEFS_AT = golenv.OverrideIfEnv("TIMEFS_AT", "127.0.0.1:7999")
+	serverIP = kingpin.Flag("server", "Server address.").Required().String()
 
-	app = kingpin.New("timefs-client", "a client to use (or test) timefs-server")
-
-	serverIP = app.Flag("server", "Server address.").Default(TIMEFS_AT).String()
-
-	dummy     = app.Command("dummy", "to test timefs-server")
-	dummyMode = dummy.Arg("mode", "create|read").Required().String()
+	flagMode = kingpin.Arg("mode", "mode to run in").Required().String()
+	flagAxn  = kingpin.Arg("axn", "create|read").Required().String()
 )
 
-func dummyCli(client *timedot.TimeFSClient, mode string) {
-	if mode == "create" {
+func dummyCli(client *timedot.TimeFSClient, axn string) {
+	if axn == "create" {
 		timefsClient.DummyCreate(client)
-	} else if mode == "read" {
+	} else if axn == "read" {
 		timefsClient.DummyRead(client)
 	} else {
-		fmt.Printf(`wrong dummy mode: %s
+		fmt.Printf(`wrong dummy axn: %s
   available options are {create,read}
-  example: tfclient --server='127.0.0.1:7999' dummy create%s`, mode, "\n")
+  example: tfclient --server='127.0.0.1:7999' dummy create%s`, axn, "\n")
 	}
 }
 
 func main() {
-	log.Println("starting client...")
-	conn := timefsClient.LinkOpen(TIMEFS_AT)
+	kingpin.Version("0.1.0")
+	kingpin.Parse()
+	if *serverIP == "" {
+		*serverIP = golenv.OverrideIfEnv("TIMEFS_AT", "127.0.0.1:7999")
+	}
+
+	log.Println("starting client...", *serverIP)
+	conn := timefsClient.LinkOpen(*serverIP)
 	defer timefsClient.LinkClose(conn)
 	client := timedot.NewTimeFSClient(conn)
 
-	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
-	case dummy.FullCommand():
-		dummyCli(&client, *dummyMode)
+	switch *flagMode {
+	case "dummy":
+		dummyCli(&client, *flagAxn)
 
 	default:
 		log.Println("wrong usage, try running app with 'help'")

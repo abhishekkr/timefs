@@ -31,7 +31,7 @@ func (d *dummy) pushDummyRecord() {
 		},
 	}
 
-	createTimeFS((*d).client, tymdot)
+	CreateTimeFS((*d).client, tymdot)
 }
 
 func (d *dummy) pushSomeDummyMicros() {
@@ -79,5 +79,5 @@ func DummyRead(client *timedot.TimeFSClient) {
 		TopicKey: DUMMY_TOPICKEY,
 		TopicId:  DUMMY_TOPICID,
 	}
-	getTimeFS(client, filterx)
+	GetTimeFS(client, filterx)
 }

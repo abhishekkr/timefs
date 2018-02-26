@@ -11,7 +11,7 @@ import (
 	timedot "github.com/abhishekkr/timefs/timedot"
 )
 
-func createTimeFS(client *timedot.TimeFSClient, l *timedot.Record) {
+func CreateTimeFS(client *timedot.TimeFSClient, l *timedot.Record) {
 	resp, err := (*client).CreateTimedot(context.Background(), l)
 
 	if err != nil {
@@ -22,7 +22,7 @@ func createTimeFS(client *timedot.TimeFSClient, l *timedot.Record) {
 	}
 }
 
-func getTimeFS(client *timedot.TimeFSClient, filtr *timedot.Record) {
+func GetTimeFS(client *timedot.TimeFSClient, filtr *timedot.Record) {
 	stream, err := (*client).ReadTimedot(context.Background(), filtr)
 	if err != nil {
 		log.Println("error on get timedot: ", err.Error())
