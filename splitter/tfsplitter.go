@@ -4,22 +4,18 @@ import (
 	"context"
 	"log"
 	"net"
-	"strings"
 
 	"google.golang.org/grpc"
 
 	"github.com/abhishekkr/gol/golenv"
 
-	timefsClient "github.com/abhishekkr/timefs/client/timefsClient"
-	timefsSplit "github.com/abhishekkr/timefs/splitter/timefsSplit"
+	timefsSplitter "github.com/abhishekkr/timefs/splitter/timefsSplitter"
 	timedot "github.com/abhishekkr/timefs/timedot"
 )
 
 var (
 	TIMEFS_PROXY_PORT = golenv.OverrideIfEnv("TIMEFS_PROXY_PORT", ":7799")
 	TIMEFS_BACKENDS   = golenv.OverrideIfEnv("TIMEFS_BACKENDS", "127.0.0.1:7999")
-
-	Clients []timedot.TimeFSClient
 )
 
 type Timedots struct {
@@ -27,7 +23,8 @@ type Timedots struct {
 }
 
 func main() {
-	connectBackends(TIMEFS_BACKENDS)
+	timefsSplitter.ConnectBackends(TIMEFS_BACKENDS)
+	defer timefsSplitter.CloseBackends()
 
 	conn, err := net.Listen("tcp", TIMEFS_PROXY_PORT)
 	if err != nil {
@@ -41,19 +38,8 @@ func main() {
 	svr.Serve(conn)
 }
 
-func connectBackends(backendCSV string) {
-	links := strings.Split(backendCSV, ",")
-	Clients = make([]timedot.TimeFSClient, len(links))
-
-	for idx, link := range links {
-		clientConn := timefsClient.LinkOpen(link)
-		defer timefsClient.LinkClose(clientConn)
-		Clients[idx] = timedot.NewTimeFSClient(clientConn)
-	}
-}
-
 func (tym *Timedots) CreateTimedot(c context.Context, input *timedot.Record) (*timedot.TimedotSave, error) {
-	go timefsSplit.CreateTimeFS()
+	go timefsSplitter.CreateTimeFS(input)
 	return &timedot.TimedotSave{
 		Success: true,
 	}, nil
@@ -62,7 +48,7 @@ func (tym *Timedots) CreateTimedot(c context.Context, input *timedot.Record) (*t
 func (tym *Timedots) ReadTimedot(filtr *timedot.Record, stream timedot.TimeFS_ReadTimedotServer) error {
 	recordChan := make(chan timedot.Record)
 
-	go timefsSplit.GetTimeFS()
+	go timefsSplitter.GetTimeFS(recordChan, filtr)
 	for record := range recordChan {
 		err := stream.Send(&record)
 		if err != nil {
