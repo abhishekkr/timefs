@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"log"
 	"net"
 
@@ -15,7 +16,9 @@ import (
 
 var (
 	TIMEFS_PROXY_PORT = golenv.OverrideIfEnv("TIMEFS_PROXY_PORT", ":7799")
-	TIMEFS_BACKENDS   = golenv.OverrideIfEnv("TIMEFS_BACKENDS", "127.0.0.1:7999")
+	TIMEFS_CREATE_ID  = golenv.OverrideIfEnv("TIMEFS_CREATE_ID", "recursion")
+
+	createEngine timefsSplitter.CreateEngine
 )
 
 type Timedots struct {
@@ -23,8 +26,8 @@ type Timedots struct {
 }
 
 func main() {
-	timefsSplitter.ConnectBackends(TIMEFS_BACKENDS)
 	defer timefsSplitter.CloseBackends()
+	createEngine = timefsSplitter.GetCreateEngine(TIMEFS_CREATE_ID)
 
 	conn, err := net.Listen("tcp", TIMEFS_PROXY_PORT)
 	if err != nil {
@@ -39,7 +42,7 @@ func main() {
 }
 
 func (tym *Timedots) CreateTimedot(c context.Context, input *timedot.Record) (*timedot.TimedotSave, error) {
-	go timefsSplitter.CreateTimeFS(input)
+	go createEngine.CreateTimeFS(input)
 	return &timedot.TimedotSave{
 		Success: true,
 	}, nil
@@ -47,15 +50,20 @@ func (tym *Timedots) CreateTimedot(c context.Context, input *timedot.Record) (*t
 
 func (tym *Timedots) ReadTimedot(filtr *timedot.Record, stream timedot.TimeFS_ReadTimedotServer) error {
 	recordChan := make(chan timedot.Record)
+	go timefsSplitter.GetTimeFS(recordChan, filtr, stream)
 
-	go timefsSplitter.GetTimeFS(recordChan, filtr)
+	var err error
 	for record := range recordChan {
-		err := stream.Send(&record)
+		err = stream.Send(&record)
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			return err
+			break
 		}
 	}
-	return nil
+	close(recordChan)
+	return err
 }
 
 func (tym *Timedots) DeleteTimedot(c context.Context, input *timedot.Record) (*timedot.TimedotDelete, error) {

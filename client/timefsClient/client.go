@@ -34,12 +34,12 @@ func GetTimeFS(client *timedot.TimeFSClient, filtr *timedot.Record, recordChan c
 			close(recordChan)
 			break
 		}
-		recordChan <- *l
-
 		if err != nil {
 			close(recordChan)
 			log.Printf("%v.ReadRecord(_) = _, %v", client, err)
+			break
 		}
+		recordChan <- *l
 	}
 }
 
