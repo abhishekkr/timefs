@@ -64,6 +64,16 @@ writes: 21600 timedots/sec
 reads:  51840 timedots/sec
 ```
 
----
+
+##### with current splitter
+
+requests for 48000 timedots
+
+* one backend with `writes:	0m12.222s` and `reads: 0m1.505s`
+
+* two backends with `writes: 0m12.233s` and `reads: 0m0.845s`
+
+* three backends with `writes: 0m11.933s` and `reads: 0m0.608s`
+
 ---
 
