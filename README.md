@@ -2,11 +2,15 @@
 
 > a file system not for regular files but time series data, so it can juice out real efficiency
 
+here, we'll see a term `timedot` in use, a `timedot` is every individual value persisted at any individual timestamp
+
+`
 ---
 
 ### HowTo Use
 
 > can be used with single server, or multiple servers fronted by a request splitter
+>
 > current splitter is really basic and under improvements
 
 * to activate local go path just for your editor or direct running go tools
