@@ -50,19 +50,21 @@ func (tym *Timedots) CreateTimedot(c context.Context, input *timedot.Record) (*t
 
 func (tym *Timedots) ReadTimedot(filtr *timedot.Record, stream timedot.TimeFS_ReadTimedotServer) error {
 	recordChan := make(chan timedot.Record)
-	go timefsSplitter.GetTimeFS(recordChan, filtr, stream)
+	go timefsSplitter.GetTimeFS(recordChan, filtr)
 
 	var err error
 	for record := range recordChan {
 		err = stream.Send(&record)
 		if err == io.EOF {
+			log.Println("[+] read stream ended by EOF;", err)
 			break
 		}
 		if err != nil {
+			log.Println("read stream send failed;", err)
 			break
 		}
 	}
-	close(recordChan)
+	log.Println("[+] read stream ended")
 	return err
 }
 

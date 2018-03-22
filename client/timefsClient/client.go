@@ -32,10 +32,12 @@ func GetTimeFS(client *timedot.TimeFSClient, filtr *timedot.Record, recordChan c
 		l, err := stream.Recv()
 		if err == io.EOF {
 			close(recordChan)
+			log.Println("[+] client EOF")
 			break
 		}
 		if err != nil {
 			close(recordChan)
+			log.Println("[+] client err")
 			log.Printf("%v.ReadRecord(_) = _, %v", client, err)
 			break
 		}

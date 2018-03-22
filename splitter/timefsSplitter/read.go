@@ -1,38 +1,34 @@
 package timefsSplitter
 
 import (
-	"io"
+	"log"
 	"sync"
 
 	timefsClient "github.com/abhishekkr/timefs/client/timefsClient"
 	timedot "github.com/abhishekkr/timefs/timedot"
 )
 
-func getTimeFS(client *timedot.TimeFSClient, recordChan chan timedot.Record, filtr *timedot.Record, wg *sync.WaitGroup) {
-	defer wg.Done()
-	timefsClient.GetTimeFS(client, filtr, recordChan)
+func getTimeFS(client *timedot.TimeFSClient, recordChan chan timedot.Record, recordChanX chan timedot.Record, filtr *timedot.Record, wgGetTimeFS *sync.WaitGroup) {
+	defer wgGetTimeFS.Done()
+
+	go timefsClient.GetTimeFS(client, filtr, recordChanX)
+
+	for _record := range recordChanX {
+		recordChan <- _record
+	}
+	log.Println("[+] done with", client)
 }
 
-func GetTimeFS(recordChan chan timedot.Record, filtr *timedot.Record, stream timedot.TimeFS_ReadTimedotServer) {
-	var wg sync.WaitGroup
+func GetTimeFS(recordChan chan timedot.Record, filtr *timedot.Record) {
+	var wgGetTimeFS sync.WaitGroup
 
-	wg.Add(len(clients))
-	recordChanX := make(chan timedot.Record)
+	wgGetTimeFS.Add(len(clients))
 	for _, client := range clients {
-		go getTimeFS(client, recordChanX, filtr, &wg)
+		recordChanX := make(chan timedot.Record)
+		go getTimeFS(client, recordChan, recordChanX, filtr, &wgGetTimeFS)
 	}
 
-	var err error
-	for record := range recordChanX {
-		err = stream.Send(&record)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			break
-		}
-	}
-	close(recordChanX)
-
-	wg.Wait()
+	wgGetTimeFS.Wait()
+	close(recordChan)
+	log.Println("[+] stream ended for", filtr)
 }
