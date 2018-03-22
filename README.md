@@ -6,6 +6,9 @@
 
 ### HowTo Use
 
+> can be used with single server, or multiple servers fronted by a request splitter
+> current splitter is really basic and under improvements
+
 * to activate local go path just for your editor or direct running go tools
 
 `. go-tasks`
