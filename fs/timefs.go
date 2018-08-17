@@ -1,7 +1,6 @@
 package fs
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -10,6 +9,11 @@ import (
 	"github.com/abhishekkr/gol/golenv"
 	timedot "github.com/abhishekkr/timefs/timedot"
 )
+
+/*
+tips from:
+	* https://stackimpact.com/blog/practical-golang-benchmarks/
+*/
 
 var (
 	TIMEFS_DIR_ROOT = golenv.OverrideIfEnv("TIMEFS_DIR_ROOT", "/tmp/timefs")
@@ -55,17 +59,7 @@ func CreateRecord(record *timedot.Record) {
 		return
 	}
 
-	if _, err := os.Stat(dirname); os.IsNotExist(err) {
-		err = os.MkdirAll(dirname, 0750)
-		if err != nil {
-			log.Println("[fs.CreateRecord] failed creating dir", dirname)
-			return
-		}
-	}
-
-	if err := ioutil.WriteFile(filepath, []byte(record.Value), 0644); err != nil {
-		log.Println("[fs.CreateRecord] failed creating value file ", filepath)
-	}
+	writefile(dirname, filepath, record.Value)
 	return
 }
 

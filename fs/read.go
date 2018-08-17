@@ -1,7 +1,8 @@
 package fs
 
 import (
-	"io/ioutil"
+	"bufio"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -14,6 +15,27 @@ import (
 var (
 	PathSlash = filepath.ToSlash("/")
 )
+
+func readfile(filepath string) string {
+	var data, _data string
+	f, err := os.Open(filepath)
+	if err != nil {
+		log.Println(err)
+		return ""
+	}
+	r := bufio.NewReader(f)
+
+	data, err = r.ReadString('\n')
+	for err == nil {
+		_data, err = r.ReadString('\n')
+		data += _data
+	}
+	if err != io.EOF {
+		log.Println(err)
+	}
+	f.Close()
+	return data
+}
 
 func globTimedots(recordChan chan timedot.Record, record *timedot.Record) (err error) {
 	dirname := TIMEFS_DIR_ROOT
@@ -60,16 +82,12 @@ func pathToTimedot(dotpath string) (record timedot.Record) {
 		return
 	}
 
-	dotvalue, err := ioutil.ReadFile(dotpath)
-	if err != nil {
-		log.Println(err)
-		return
-	}
+	dotvalue := readfile(dotpath)
 
 	record = timedot.Record{
 		TopicKey: dotpathSplit[1],
 		TopicId:  dotpathSplit[2],
-		Value:    string(dotvalue),
+		Value:    dotvalue,
 		Time: []*timedot.Timedot{
 			&timedot.Timedot{
 				Year:        StrToInt32(dotpathSplit[3]),

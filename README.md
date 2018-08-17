@@ -55,32 +55,15 @@ go run client/tfclient.go --server="127.0.0.1:7999" dummy read
 
 ### Performance Metrics
 
-> server and cli running on same node, speed mainly depends on IOPS in current strategy
-
-* on `xfs` cloud 10GB non-SSD
-
-```
-writes: 3240 timedots/sec
-reads:  21600 timedots/sec
-```
-
-* on `ext4` localhost SSD
-
-```
-writes: 21600 timedots/sec
-reads:  51840 timedots/sec
-```
-
-
 ##### with current splitter
 
-requests for 48000 timedots
+requests for 48000 timedots, rough estimates
 
-* one backend with `writes:	0m12.222s` and `reads: 0m1.505s`
+* one backend with `writes:	0m2.47s` and `reads: 0m0.36s`
 
-* two backends with `writes: 0m12.233s` and `reads: 0m0.845s`
+* two backends with `writes: 0m2.46s` and `reads: 0m0.18s`
 
-* three backends with `writes: 0m11.933s` and `reads: 0m0.608s`
+* three backends with `writes: 0m2.45s` and `reads: 0m0.24s`
 
 ---
 

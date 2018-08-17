@@ -38,6 +38,9 @@ cd ${THIS_DIR}
 [[ -z "${DB_MIGRATE_MAIN}" ]] && export DB_MIGRATE_MAIN=""
 [[ -z "${GO_GET_PKG_FILE}" ]] && export GO_GET_PKG_FILE="go-tasks.pkg"
 
+[[ -z "${GOOS_OPTIONS}" ]] && export GOOS_OPTIONS="darwin linux windows"
+[[ -z "${GOARCH_OPTIONS}" ]] && export GOARCH_OPTIONS="386 amd64"
+
 # managing go deps
 #############################################################################
 
@@ -49,7 +52,7 @@ MANDATORY_ENV_VARS=""
 
 [[ ! -z "${MANDATORY_ENV_VARS}" && "$1" != "cfg" ]] && \
   echo "run '$0 cfg', following variable need to be configured: ${MANDATORY_ENV_VARS}" && \
-  exit 123
+  return 123
 
 #############################################################################
 ##### from github.com/abhishekkr/dotfiles/shell_profile/a.golang.sh
@@ -346,22 +349,34 @@ buildForAll(){
   local FOR_OS_ARCH="$1"
   local GO_MAIN_BIN=$(echo "${GO_MAIN_FILE}" | sed 's/.go$//')
 
-  [[ ! -f "${GO_MAIN_FILE}" ]] && \
-    echo "[error] missing main file ${GO_MAIN_FILE}, set correct env for GO_MAIN_FILE" && \
-    exit 123
+  for _GO_MAIN_FILE in $(echo "${GO_MAIN_FILE}" | tr ' ' '\n'); do
+    [[ -z "${_GO_MAIN_FILE}" ]] && continue
+    [[ ! -f "${_GO_MAIN_FILE}" ]] && \
+      echo "[error] missing main file ${_GO_MAIN_FILE}, set correct env for GO_MAIN_FILE" && \
+      exit 123
+  done
 
   buildMigrate
   buildPlugins
 
+  pushd "${GOPATH}/src/${MY_GOPATH}"
   mkdir -p ./bin
-  for GOOS in darwin linux windows; do
-    for GOARCH in 386 amd64; do
+  for GOOS in $(echo "${GOOS_OPTIONS}" | tr ' ' '\n'); do
+    for GOARCH in $(echo "${GOARCH_OPTIONS}" | tr ' ' '\n'); do
       [[ ! -z "${FOR_OS_ARCH}" && "${GOOS}-${GOARCH}" != "${FOR_OS_ARCH}" ]] && continue
-      echo "[+] building ${GO_MAIN_FILE} for $GOOS - $GOARCH"
-      go build -o ./bin/${GO_MAIN_BIN}-$GOOS-$GOARCH "${GO_MAIN_FILE}"
-      [[ $? -ne 0 ]] && echo "go build for ${GO_MAIN_FILE}-${GOOS}-${GOARCH} failed" && exit 123
+      for _GO_MAIN_FILE in $(echo "${GO_MAIN_FILE}" | tr ' ' '\n'); do
+        [[ -z "${_GO_MAIN_FILE}" ]] && continue
+        echo "[+] building ${_GO_MAIN_FILE} for $GOOS - $GOARCH"
+        local _GO_MAIN_BIN_PREFIX=$(echo "${MY_GOPATH}" | xargs basename)
+        local _GO_MAIN_BIN=$(echo "${_GO_MAIN_FILE}" | xargs dirname | xargs basename)
+        [[ "${_GO_MAIN_BIN}" == "." ]] && _GO_MAIN_BIN=$(echo "${_GO_MAIN_FILE}" | awk -F'.' '{print $1}')
+        _GO_MAIN_BIN="${_GO_MAIN_BIN_PREFIX}-${_GO_MAIN_BIN}"
+        go build -o ./bin/${_GO_MAIN_BIN}-$GOOS-$GOARCH "${_GO_MAIN_FILE}"
+        [[ $? -ne 0 ]] && echo "go build for ${_GO_MAIN_FILE}-${GOOS}-${GOARCH} failed" && exit 123
+      done
     done
   done
+  popd
 }
 
 allPathsWithGoFiles(){
@@ -501,7 +516,7 @@ configGoTasks(){
   read _DB_MIGRATE_MAIN
   [[ -z "${_DB_MIGRATE_MAIN}" ]] && _DB_MIGRATE_MAIN="${DB_MIGRATE_MAIN}"
 
-  echo -n "[+] if there is a separate main file handling db migration, it's path else just press enter (default: '${GO_GET_PKG_FILE}'): "
+  echo -n "[+] provide non-default path for dependency list else just press enter (default: '${GO_GET_PKG_FILE}'): "
   read _GO_GET_PKG_FILE
   [[ -z "${_GO_GET_PKG_FILE}" ]] && _GO_GET_PKG_FILE="${GO_GET_PKG_FILE}"
 
@@ -521,6 +536,24 @@ configGoTasks(){
   if [[ ! -z "${_GO_GET_PKG_FILE}" ]]; then
     echo "export GO_GET_PKG_FILE='${_GO_GET_PKG_FILE}'" >> "${GO_TASK_CONFIG}"
   fi
+}
+
+goLinkMe(){
+		_REPO_DIR=$PWD
+		_REPO_URL="${MY_GOPATH}"
+		_TMP_PWD=$PWD
+		cd $_REPO_DIR
+		if [[ ! -d "${GOPATH}/src/${_REPO_URL}" ]]; then
+      _REPO_BASEDIR=$(dirname "${GOPATH}/src/${_REPO_URL}")
+      if [ ! -d "${_REPO_BASEDIR}" ]
+      then
+        mkdir -p "${_REPO_BASEDIR}/src"
+      fi
+      ln -sf "${PWD}" "${GOPATH}/src/${_REPO_URL}"
+		fi
+
+		echo cd "${GOPATH}/src/${_REPO_URL}"
+		cd "${GOPATH}/src/${_REPO_URL}"
 }
 
 goTasks(){
@@ -560,6 +593,9 @@ goTasks(){
     test)
       bash $0 deps
       goTest
+      ;;
+    linkme)
+      goLinkMe
       ;;
     *)
       goTasksHelp
