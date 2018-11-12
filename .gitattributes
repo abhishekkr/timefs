@@ -1,0 +1,8 @@
+* text=auto
+
+*.gitattributes text
+.gitignore text
+*.md text
+
+go-tasks linguist-vendored
+docs/* linguist-vendored
