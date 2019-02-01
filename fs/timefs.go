@@ -1,11 +1,6 @@
 package fs
 
 import (
-	"log"
-	"os"
-	"path"
-	"strconv"
-
 	"github.com/abhishekkr/gol/golenv"
 	timedot "github.com/abhishekkr/timefs/timedot"
 )
@@ -17,66 +12,30 @@ tips from:
 
 var (
 	TIMEFS_DIR_ROOT = golenv.OverrideIfEnv("TIMEFS_DIR_ROOT", "/tmp/timefs")
-	ValueFile       = "value"
+
+	ValueFile = "value"
 )
 
-func Int32ToStr(n int32) string {
-	return strconv.Itoa(int(n))
+type StoreEngine interface {
+	CreateRecord(record *timedot.Record)
+	ReadRecords(recordChan chan timedot.Record, record *timedot.Record)
 }
 
-func StrToInt32(s string) int32 {
-	n, err := strconv.Atoi(s)
-	if err != nil {
-		log.Println("[fs.StrToInt32] failure to convert", s)
-	}
-	return int32(n)
+/*
+StoreEngines acts as map for all available data storeX engines
+*/
+var StoreEngines = make(map[string]StoreEngine)
+
+/*
+RegisterStoreEngine gets used by adapters to register themselves.
+*/
+func RegisterStoreEngine(name string, store StoreEngine) {
+	StoreEngines[name] = store
 }
 
-func timedotPath(record *timedot.Record) string {
-	return path.Join(TIMEFS_DIR_ROOT,
-		record.TopicKey,
-		record.TopicId,
-		Int32ToStr(record.Time[0].Year),
-		Int32ToStr(record.Time[0].Month),
-		Int32ToStr(record.Time[0].Date),
-		Int32ToStr(record.Time[0].Hour),
-		Int32ToStr(record.Time[0].Minute),
-		Int32ToStr(record.Time[0].Second),
-		Int32ToStr(record.Time[0].Microsecond),
-	)
-}
-
-func timedotFile(dirname string) string {
-	return path.Join(dirname, ValueFile)
-}
-
-func CreateRecord(record *timedot.Record) {
-	dirname := timedotPath(record)
-	filepath := timedotFile(dirname)
-
-	if _, err := os.Stat(filepath); !os.IsNotExist(err) {
-		log.Println("[fs.CreateRecord] pre-existing", filepath)
-		return
-	}
-
-	writefile(dirname, filepath, record.Value)
-	return
-}
-
-func ReadRecords(recordChan chan timedot.Record, record *timedot.Record) {
-	var err error
-	if len(record.Time) > 0 {
-		return
-	}
-
-	record.Time = append(record.Time, &timedot.Timedot{})
-	if len(record.Time) == 0 {
-		return
-	}
-
-	err = globTimedots(recordChan, record)
-	if err != nil {
-		log.Println(err)
-	}
-	return
+/*
+GetStoreEngine gets used by client to fetch a required store.
+*/
+func GetStoreEngine(name string) StoreEngine {
+	return StoreEngines[name]
 }

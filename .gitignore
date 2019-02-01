@@ -12,3 +12,8 @@ temp/*
 *.lock
 *.sock
 tags
+timefs-client
+timefs-server
+timefs-splitter
+vendor/**
+Gopkg.toml

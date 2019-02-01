@@ -15,10 +15,13 @@ import (
 
 var (
 	TIMEFS_PORT = golenv.OverrideIfEnv("TIMEFS_PORT", ":7999")
+
+	STORE = timefs.GetStoreEngine(golenv.OverrideIfEnv("TIMEFS_STORE", "filesystem")) // filesystem, leveldb
 )
 
 type Timedots struct {
 	savedTimedots []*timedot.Record
+	store         timefs.StoreEngine
 }
 
 func main() {
@@ -35,7 +38,7 @@ func main() {
 }
 
 func (tym *Timedots) CreateTimedot(c context.Context, input *timedot.Record) (*timedot.TimedotSave, error) {
-	go timefs.CreateRecord(input)
+	go STORE.CreateRecord(input)
 	return &timedot.TimedotSave{
 		Success: true,
 	}, nil
@@ -44,7 +47,7 @@ func (tym *Timedots) CreateTimedot(c context.Context, input *timedot.Record) (*t
 func (tym *Timedots) ReadTimedot(filtr *timedot.Record, stream timedot.TimeFS_ReadTimedotServer) error {
 	recordChan := make(chan timedot.Record)
 
-	go timefs.ReadRecords(recordChan, filtr)
+	go STORE.ReadRecords(recordChan, filtr)
 	for record := range recordChan {
 		err := stream.Send(&record)
 		if err != nil {
